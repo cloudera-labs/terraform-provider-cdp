@@ -13,6 +13,12 @@ package datahub
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
+	"time"
+
 	"github.com/cloudera/terraform-provider-cdp/cdp-sdk-go/cdp"
 	"github.com/cloudera/terraform-provider-cdp/cdp-sdk-go/gen/datahub/client"
 	"github.com/cloudera/terraform-provider-cdp/cdp-sdk-go/gen/datahub/client/operations"
@@ -20,11 +26,6 @@ import (
 	envOperations "github.com/cloudera/terraform-provider-cdp/cdp-sdk-go/gen/environments/client/operations"
 	envmodels "github.com/cloudera/terraform-provider-cdp/cdp-sdk-go/gen/environments/models"
 	"github.com/cloudera/terraform-provider-cdp/utils"
-	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
-	"time"
 )
 
 var (
@@ -257,4 +258,16 @@ func checkIfClusterCreationFailed(resp *operations.DescribeClusterOK) (interface
 func fetchEnvByName(r *awsDatahubResource, envName *string, ctx context.Context) (*envOperations.DescribeEnvironmentOK, error) {
 	tflog.Debug(ctx, fmt.Sprintf("About to fetch environment based on its name: %s", *envName))
 	return r.client.Environments.Operations.DescribeEnvironment(envOperations.NewDescribeEnvironmentParamsWithContext(ctx).WithInput(&envmodels.DescribeEnvironmentRequest{EnvironmentName: envName}))
+}
+
+func waitForDeleted(datahubName string, client *client.Datahub, ctx context.Context, f func() (interface{}, string, error)) error {
+	stateConf := &retry.StateChangeConf{
+		Target:       []string{},
+		Delay:        pollingDelay,
+		Timeout:      pollingTimeout,
+		PollInterval: pollingInterval,
+		Refresh:      f,
+	}
+	_, err := stateConf.WaitForStateContext(ctx)
+	return err
 }
