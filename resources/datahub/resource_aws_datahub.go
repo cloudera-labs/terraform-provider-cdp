@@ -58,7 +58,7 @@ func (r *awsDatahubResource) Create(ctx context.Context, req resource.CreateRequ
 
 	res, err := r.client.Datahub.Operations.CreateAWSCluster(params)
 	if err != nil {
-		utils.AddDatahubDiagnosticsError(err, &resp.Diagnostics, "creating AWS Datahub")
+		utils.AddDatahubDiagnosticsError(err, &resp.Diagnostics, "create AWS Datahub")
 		return
 	}
 
@@ -83,7 +83,7 @@ func (r *awsDatahubResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 	if err != nil {
 		tflog.Debug(ctx, fmt.Sprintf("Cluster creation has ended up in error: %s", err.Error()))
-		utils.AddDatahubDiagnosticsError(err, &resp.Diagnostics, "creating AWS Datahub")
+		utils.AddDatahubDiagnosticsError(err, &resp.Diagnostics, "create AWS Datahub")
 		return
 	}
 }
@@ -109,7 +109,7 @@ func (r *awsDatahubResource) Read(ctx context.Context, req resource.ReadRequest,
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		utils.AddDatahubDiagnosticsError(err, &resp.Diagnostics, "reading AWS Datahub")
+		utils.AddDatahubDiagnosticsError(err, &resp.Diagnostics, "read AWS Datahub")
 		return
 	}
 
@@ -140,18 +140,20 @@ func (r *awsDatahubResource) Delete(ctx context.Context, req resource.DeleteRequ
 
 	params := operations.NewDeleteClusterParamsWithContext(ctx).WithInput(&datahubmodels.DeleteClusterRequest{
 		ClusterName: state.ID.ValueStringPointer(),
+		Force:       state.forceDeleteRequested(),
 	})
+	tflog.Debug(ctx, fmt.Sprintf("Performing delete for cluster with the following request: %+v\n", params))
 	_, err := r.client.Datahub.Operations.DeleteCluster(params)
 	if err != nil {
 		if !isNotFoundError(err) {
-			utils.AddDatahubDiagnosticsError(err, &resp.Diagnostics, "deleting AWS Datahub")
+			utils.AddDatahubDiagnosticsError(err, &resp.Diagnostics, "delete AWS Datahub")
 		}
 		return
 	}
 
-	err = waitForToBeDeleted(state.Name.ValueString(), r.client.Datahub, ctx)
+	err = waitForToBeDeleted(state.Name.ValueString(), r.client.Datahub, ctx, state.forceDeleteRequested())
 	if err != nil {
-		utils.AddDatahubDiagnosticsError(err, &resp.Diagnostics, "deleting AWS Datahub")
+		utils.AddDatahubDiagnosticsError(err, &resp.Diagnostics, "delete AWS Datahub")
 		return
 	}
 }
